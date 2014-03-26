@@ -122,6 +122,9 @@ ${_WORKDIR}/stage-stamp: ${_WORKDIR}/build-stamp
 .if !target(do-stage)
 do-stage:
 	${_MAKE} -C ${_WORKDIR}/${SRCDIR} install DESTDIR=${PWD}/${_STAGEDIR}
+	@if [ -f ${_STAGEDIR}${_DATADIR}/info/dir ]; then	\
+		rm ${_STAGEDIR}${_DATADIR}/info/dir;		\
+	fi
 .endif
 .if !target(post-stage)
 post-stage:
