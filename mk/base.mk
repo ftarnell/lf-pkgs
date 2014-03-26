@@ -30,7 +30,8 @@ PKGABI		!= pkg -vv|awk '$$1 == "ABI" { print $$3 }'
 _MAKE		?= ${MAKE}
 _CC		?= cc
 _CFLAGS		?= -O2
-_LDFLAGS	?= -R${_LIBDIR} -I${_INCLUDEDIR}
+_LDFLAGS	?= -L${_LIBDIR} -Wl,-R${_LIBDIR}
+_CPPFLAGS	?= -I${_INCLUDEDIR}
 
 _CONFIGURE_ARGS	?= --prefix=${_PREFIX} --bindir=${_BINDIR} --sbindir=${_SBINDIR} 	\
 		   --datadir=${_DATADIR} --sysconfdir=${_SYSCONFDIR}			\
@@ -56,7 +57,7 @@ do-fetch:
 	@if [ -f "${_DISTDIR}/${DISTFILE}" ]; then			\
 		echo ">>> Distfile ${DISTFILE} already present";	\
 	else								\
-		echo ">>> Fetching ${DISTFILE}";			\
+		echo ">>> Fetching ${DISTURL}";			\
 		fetch -o ${_DISTDIR}/${DISTFILE} ${DISTURL};		\
 	fi
 .endif
@@ -148,10 +149,10 @@ do-package:
 		mode=`stat -f%p "$$dir" | cut -c 3-`;				\
 		dir="$${dir#${_STAGEDIR}}";					\
 		[ "$$dir" = "" ] && continue;					\
-		echo >>${_STAGEDIR}/+MANIFEST "- $$dir: { uname: root, gname: wheel, perm: $$mode }";	\
+		echo >>${_STAGEDIR}/+MANIFEST "  $$dir: { uname: root, gname: wheel, perm: $$mode }";	\
 	done
 	@echo >>${_STAGEDIR}/+MANIFEST "files:"
-	@find ${_STAGEDIR} -type f | while read file; do			\
+	@find ${_STAGEDIR} -type f -o -type l | while read file; do		\
 		[ "$$file" = "${_STAGEDIR}/+MANIFEST" ] && continue;		\
 		mode=`stat -f%p "$$file" | cut -c 3-`;				\
 		file="$${file#${_STAGEDIR}}";					\
@@ -169,12 +170,13 @@ do-package:
 	@rm -f ${_WORKDIR}/post-install
 	@touch ${_WORKDIR}/post-install
 	@for c in ${CONFFILES}; do						\
-		echo >> ${_WORKDIR}/post-install "if ! test -f \"$$c\"; then cp -p $$c.dist $$c; fi"; \
+		echo >> ${_WORKDIR}/post-install "if ! test -f \"$$c\"; then cp $$c.dist $$c; fi"; \
 	done
 	@if [ -f "post-install" ]; then						\
 		cat post-install >> ${_WORKDIR}/post-install;			\
 	fi
 	@echo >>${_STAGEDIR}/+MANIFEST "  post-install: |-";
+	@echo >>${_STAGEDIR}/+MANIFEST "    #! /bin/sh";
 	@cat ${_WORKDIR}/post-install | sed 's/^/    /g' >>${_STAGEDIR}/+MANIFEST;
 	@if [ -f "pre-deinstall" ]; then					\
 		echo >>${_STAGEDIR}/+MANIFEST "  pre-deinstall: |-";		\
@@ -189,14 +191,20 @@ do-package:
 .endif
 package: ${_WORKDIR}/package-stamp
 
-${_WORKDIR}/install-stamp: package-stamp
+${_WORKDIR}/install-stamp: ${_WORKDIR}/package-stamp
 	@echo ">>> Installing ${NAME}-${_PKGVERSION}"
 	@${MAKE} do-install
 	@touch ${_WORKDIR}/install-stamp
 .if !target(do-install)
 do-install:
-	pkg add -f ${_PKGDIR}/LF${NAME}-${_PKGVERSION}.txz
+	pkg add ${_PKGDIR}/LF${NAME}-${_PKGVERSION}.txz
 .endif
 install: ${_WORKDIR}/install-stamp
 
+uninstall:
+	pkg remove -y LF${NAME}
+
+reinstall:
+	${MAKE} uninstall
+	${MAKE} install
 .PHONY: fetch do-fetch extract do-extract configure do-configure build do-build stage do-stage package do-package

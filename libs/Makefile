@@ -1,3 +1,3 @@
-SUBDIRS=	sudo openssh
+SUBDIRS=	gettext
 
 .include "../mk/subdir.mk"
