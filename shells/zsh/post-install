@@ -1,0 +1,1 @@
+grep -q "^/usr/lf/bin/zsh\$" /etc/shells || ( echo "/usr/lf/bin/zsh" >>/etc/shells )
